@@ -41,14 +41,15 @@
                                        (parse-integer (uiop:getenv "MAX_PROBLEMS_PER_FILE"))
                                        10)))
         (dolist (filename '("easy.txt" "medium.txt" "hard.txt" "diabolical.txt"))
-          (let ((filepath (format nil "sudoku-exchange-puzzle-bank/~a" filename)))
+          (let ((filepath (format nil "sudoku-exchange-puzzle-bank/~a" filename))
+                (problem-count 0))
             (when (probe-file filepath)
               (with-open-file (stream filepath)
                 (loop for line = (read-line stream nil nil)
                       for count from 1
                       while (and line (<= count max-problems-per-file))
                       do (let* ((grid (parse-sudoku-line line))
-                                (name (file-namestring filepath)))
+                                (name (format nil "~a - ~a" (file-namestring filepath) (incf problem-count))))
                            (when grid
                              (push (list :name name :grid (loop for i from 0 to 8 collect (loop for j from 0 to 8 collect (aref grid i j)))) problems-list))))))))
         (with-open-file (stream "problems.json" :direction :output :if-exists :supersede :if-does-not-exist :create)
