@@ -1,0 +1,124 @@
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+                                           (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+
+(ql:quickload :jonathan)
+
+(defpackage #:sudoku-cl
+  (:use #:cl)
+  (:import-from #:jonathan #:parse)
+  (:export #:solve #:is-valid #:print-grid #:main))
+(in-package #:sudoku-cl)
+
+(declaim (optimize (speed 3) (safety 0)))
+
+(defun parse-problems (file)
+  "Parses a JSON file containing Sudoku problems."
+  (with-open-file (stream file)
+    (jonathan:parse (read-line stream))))
+
+(defun print-grid (grid)
+  "Prints the Sudoku grid in a human-readable format."
+  (declare (type (simple-array (unsigned-byte 4) (9 9)) grid))
+  (loop for i from 0 to 8
+        do (if (zerop (mod i 3))
+               (format t "+-------+-------+-------+~%"))
+           (loop for j from 0 to 8
+                 do (if (zerop (mod j 3))
+                        (format t "| "))
+                    (let ((cell (aref grid i j)))
+                      (if (zerop cell)
+                          (format t ". ")
+                          (format t "~a " cell))))
+           (format t "|~%"))
+  (format t "+-------+-------+-------+~%"))
+
+(defun find-empty (grid)
+  "Finds the first empty cell (represented by 0) in the grid."
+  (declare (type (simple-array (unsigned-byte 4) (9 9)) grid))
+  (loop for i from 0 to 8
+        do (loop for j from 0 to 8
+                 do (when (zerop (aref grid i j))
+                      (return-from find-empty (values i j)))))
+  nil)
+
+(defun is-valid (grid row col num)
+  "Checks if a number is valid in a given cell."
+  (declare (type (simple-array (unsigned-byte 4) (9 9)) grid)
+           (type (integer 0 8) row col)
+           (type (integer 1 9) num))
+  ;; Check row
+  (loop for x from 0 to 8
+        do (when (= (aref grid row x) num)
+             (return-from is-valid nil)))
+  ;; Check column
+  (loop for y from 0 to 8
+        do (when (= (aref grid y col) num)
+             (return-from is-valid nil)))
+  ;; Check 3x3 box
+  (let ((start-row (* 3 (floor row 3)))
+        (start-col (* 3 (floor col 3))))
+    (loop for y from start-row to (+ start-row 2)
+          do (loop for x from start-col to (+ start-col 2)
+                   do (when (= (aref grid y x) num)
+                        (return-from is-valid nil)))))
+  t)
+
+(defun solve (grid)
+  "Solves the Sudoku puzzle using a backtracking algorithm."
+  (declare (type (simple-array (unsigned-byte 4) (9 9)) grid))
+  (multiple-value-bind (row col) (find-empty grid)
+    (if (not row)
+        t
+        (progn
+          (loop for num from 1 to 9
+                when (is-valid grid row col num)
+                  do (setf (aref grid row col) num)
+                     (when (solve grid)
+                       (return-from solve t))
+                     (setf (aref grid row col) 0))
+          nil))))
+
+(defun main (&rest argv)
+  "The main function to run the Sudoku solver."
+  (declare (ignorable argv))
+  (let* ((problems (parse-problems "problems.json"))
+         (times '())
+         (total-time 0)
+         (fastest-time most-positive-double-float)
+         (fastest-problem nil)
+         (slowest-time 0.0)
+         (slowest-problem nil))
+    (dolist (problem problems)
+      (let* ((grid (make-array '(9 9) :initial-contents (getf problem :|grid|)
+                               :element-type '(unsigned-byte 4)))
+             (name (getf problem :|name|))
+             (start-time (get-internal-real-time)))
+        (format t "Problem: ~a~%" name)
+        (print-grid grid)
+        (if (solve grid)
+            (let* ((end-time (get-internal-real-time))
+                   (elapsed-time (/ (- end-time start-time) internal-time-units-per-second)))
+              (push elapsed-time times)
+              (incf total-time elapsed-time)
+              (when (< elapsed-time fastest-time)
+                (setf fastest-time elapsed-time)
+                (setf fastest-problem name))
+              (when (> elapsed-time slowest-time)
+                (setf slowest-time elapsed-time)
+                (setf slowest-problem name))
+              (format t "Solution (took ~,3f seconds):~%" elapsed-time)
+              (print-grid grid))
+            (format t "No solution found.~%"))
+        (format t "~%")))
+    (let ((num-problems (length problems)))
+      (format t "Statistics:~%")
+      (format t "  Total problems solved: ~a~%" num-problems)
+      (format t "  Total time: ~,3f seconds~%" total-time)
+      (when (plusp num-problems)
+        (format t "  Average time: ~,3f seconds~%" (/ total-time num-problems)))
+      (when fastest-problem
+        (format t "  Fastest problem: ~a (~,3f seconds)~%" fastest-problem fastest-time))
+      (when slowest-problem
+        (format t "  Slowest problem: ~a (~,3f seconds)~%" slowest-problem slowest-time)))))
