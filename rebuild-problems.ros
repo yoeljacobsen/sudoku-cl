@@ -1,0 +1,57 @@
+(ql:quickload :jonathan)
+(ql:quickload :split-sequence)
+
+(defpackage #:rebuild-problems
+  (:use #:cl))
+(in-package #:rebuild-problems)
+
+(defun hex-char-to-int (char)
+  (cond
+    ((digit-char-p char) (digit-char-p char))
+    ((char= char #\a) 10)
+    ((char= char #\b) 11)
+    ((char= char #\c) 12)
+    ((char= char #\d) 13)
+    ((char= char #\e) 14)
+    ((char= char #\f) 15)
+    (t (error "Invalid hexadecimal character: ~a" char))))
+
+(defun parse-sudoku-line (line)
+  "Parses a single line representing a Sudoku puzzle, extracting the grid string."
+  (let* ((parts (split-sequence:split-sequence #\Space line :count 2))
+         (grid-string (second parts))
+         (grid (make-array '(9 9) :element-type '(unsigned-byte 4))))
+    (loop for i from 0 to 8
+          do (loop for j from 0 to 8
+                   do (let* ((char-index (+ j (* i 9)))
+                             (char (char grid-string char-index)))
+                        (cond
+                          ((char= char #\.) (setf (aref grid i j) 0))
+                          ((digit-char-p char) (setf (aref grid i j) (digit-char-p char)))
+                          ((alpha-char-p char) (setf (aref grid i j) (hex-char-to-int char)))
+                          (t (error "Invalid character in sudoku line: ~a" char))))))
+    grid))
+
+(defun main ()
+  "Main function to rebuild problems.json from puzzle files."
+  (let* ((problems-list nil)
+         (max-problems-per-file (if (uiop:getenv "MAX_PROBLEMS_PER_FILE")
+                                    (parse-integer (uiop:getenv "MAX_PROBLEMS_PER_FILE"))
+                                    10)))
+    (dolist (filename '("easy.txt" "medium.txt" "hard.txt" "diabolical.txt"))
+      (let ((filepath (format nil "sudoku-exchange-puzzle-bank/~a" filename)))
+        (when (probe-file filepath)
+          (with-open-file (stream filepath)
+            (loop for line = (read-line stream nil nil) 
+                  for count from 1
+                  while (and line (<= count max-problems-per-file))
+                  do (let* ((grid (parse-sudoku-line line))
+                             (name (file-namestring filepath)))
+                       (push (list :name name :grid (loop for i from 0 to 8 collect (loop for j from 0 to 8 collect (aref grid i j)))) problems-list)))))))
+    (with-open-file (stream "problems.json" :direction :output :if-exists :supersede :if-does-not-exist :create)
+      (format stream "[~{~a~^,~}]" 
+              (mapcar (lambda (problem)
+                        (jonathan:to-json problem :from-alist t))
+                      (reverse problems-list))))))
+
+(main)
