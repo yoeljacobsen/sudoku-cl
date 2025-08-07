@@ -18,7 +18,7 @@ rebuild:
 	git clone https://github.com/grantm/sudoku-exchange-puzzle-bank.git sudoku-exchange-puzzle-bank
 	MAX_PROBLEMS_PER_FILE=$(MAX_PROBLEMS_PER_FILE) ros rebuild-problems.ros
 	git add problems.json GEMINI.md
-	git commit -m "Rebuild problems.json from grantm/sudoku-exchange-puzzle-bank and update checkpoint."
+	git diff-index --quiet HEAD || git commit -m "Rebuild problems.json from grantm/sudoku-exchange-puzzle-bank and update checkpoint."
 
 clean:
 	rm -f sudoku-cl
