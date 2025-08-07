@@ -51,7 +51,7 @@
     (with-open-file (stream "problems.json" :direction :output :if-exists :supersede :if-does-not-exist :create)
       (format stream "[~{~a~^,~}]" 
               (mapcar (lambda (problem)
-                        (jonathan:to-json problem :from-alist t))
+                        (jonathan:to-json problem :from :alist))
                       (reverse problems-list))))))
 
 (main)
