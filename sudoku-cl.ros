@@ -8,6 +8,7 @@
 (defpackage #:sudoku-cl
   (:use #:cl)
   (:import-from #:jonathan #:parse)
+  (:import-from #:uiop #:getenv #:read-file-string)
   (:export #:solve #:is-valid #:print-grid #:main))
 (in-package #:sudoku-cl)
 
@@ -15,8 +16,7 @@
 
 (defun parse-problems (file)
   "Parses a JSON file containing Sudoku problems."
-  (with-open-file (stream file)
-    (jonathan:parse (read-line stream))))
+  (jonathan:parse (read-file-string file)))
 
 (defun print-grid (grid)
   "Prints the Sudoku grid in a human-readable format."
@@ -84,9 +84,10 @@
   "The main function to run the Sudoku solver."
   (declare (ignorable argv))
   (let* ((problems (parse-problems "problems.json"))
-         (num-problems-to-solve (if (uiop:getenv "NUM_PROBLEMS")
-                                    (parse-integer (uiop:getenv "NUM_PROBLEMS"))
-                                    (length problems)))
+         (num-problems-to-solve (let ((num-problems-str (getenv "NUM_PROBLEMS")))
+                                    (if (and num-problems-str (> (length num-problems-str) 0))
+                                        (parse-integer num-problems-str)
+                                        (length problems))))
          (times '())
          (total-time 0)
          (fastest-time most-positive-double-float)
@@ -94,9 +95,9 @@
          (slowest-time 0.0)
          (slowest-problem nil))
     (loop for problem in (subseq problems 0 num-problems-to-solve)
-      do (let* ((grid (make-array '(9 9) :initial-contents (getf problem :|grid|)
+      do (let* ((grid (make-array '(9 9) :initial-contents (getf problem :grid)
                                :element-type '(unsigned-byte 4)))
-             (name (getf problem :|name|))
+             (name (getf problem :name))
              (start-time (get-internal-real-time)))
         (format t "Problem: ~a~%" name)
         (print-grid grid)
