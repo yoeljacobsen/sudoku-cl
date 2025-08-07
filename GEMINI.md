@@ -6,5 +6,5 @@ This checkpoint reflects the state of the project after implementing the Sudoku 
 
 In future sessions, I will be able to:
 
-*   **Rebuild `problems.json`**: Fetch new Sudoku problem sets from specified online repositories and update the `problems.json` file.
+*   **Rebuild `problems.json`**: Fetch new Sudoku problem sets from specified online repositories and update the `problems.json` file using `make rebuild`.
 *   **Automate Updates**: Automatically commit changes to `problems.json`, `GEMINI.md`, and the checkpoint file after rebuilding the problem set.
